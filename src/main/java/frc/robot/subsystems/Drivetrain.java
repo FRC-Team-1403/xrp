@@ -4,7 +4,17 @@
 
 package frc.robot.subsystems;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.util.ReplanningConfig;
+
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
+import edu.wpi.first.math.kinematics.DifferentialDriveWheelPositions;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.BuiltInAccelerometer;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.xrp.XRPGyro;
@@ -37,6 +47,10 @@ public class Drivetrain extends SubsystemBase {
   // Set up the BuiltInAccelerometer
   private final BuiltInAccelerometer m_accelerometer = new BuiltInAccelerometer();
 
+  private ChassisSpeeds m_speeds;
+
+  private DifferentialDriveOdometry m_Odometry;
+
   /** Creates a new Drivetrain. */
   public Drivetrain() {
     // We need to invert one side of the drivetrain so that positive voltages
@@ -48,6 +62,32 @@ public class Drivetrain extends SubsystemBase {
     m_leftEncoder.setDistancePerPulse((Math.PI * kWheelDiameterInch) / kCountsPerRevolution);
     m_rightEncoder.setDistancePerPulse((Math.PI * kWheelDiameterInch) / kCountsPerRevolution);
     resetEncoders();
+    m_Odometry = new DifferentialDriveOdometry(new Rotation2d(Units.degreesToRadians(m_gyro.getAngleZ())), Units.inchesToMeters(m_leftEncoder.getDistance()), Units.inchesToMeters(m_rightEncoder.getDistance()));
+
+            AutoBuilder.configureRamsete(
+                this::getPose, // Robot pose supplier
+                this::resetPose, // Method to reset odometry (will be called if your auto has a starting pose)
+                this::getCurrentSpeeds, // Current ChassisSpeeds supplier
+                this::arcadeDrive, // Method that will drive the robot given ChassisSpeeds
+                new ReplanningConfig(), // Default path replanning config. See the API for the options here
+                () -> {
+                    return false;
+                },
+                this // Reference to this subsystem to set requirements
+        );
+    m_speeds = new ChassisSpeeds();
+  }
+
+  public void arcadeDrive(ChassisSpeeds speeds)
+  {
+    //recheck
+    m_speeds = speeds;
+    arcadeDrive(Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond),speeds.omegaRadiansPerSecond);
+  }
+
+  public ChassisSpeeds getCurrentSpeeds()
+  {
+    return m_speeds;
   }
 
   public void arcadeDrive(double xaxisSpeed, double zaxisRotate) {
@@ -138,8 +178,20 @@ public class Drivetrain extends SubsystemBase {
     m_gyro.reset();
   }
 
+  public void resetPose(Pose2d pose)
+  {
+    m_Odometry.resetPosition(pose.getRotation(), new DifferentialDriveWheelPositions(0, 0), pose);
+  }
+
+  public Pose2d getPose()
+  {
+    return m_Odometry.getPoseMeters();
+  }
+
   @Override
   public void periodic() {
     // This method will be called once per scheduler run
+    m_Odometry.update(new Rotation2d(Units.degreesToRadians(m_gyro.getAngleZ())), 
+    new DifferentialDriveWheelPositions(Units.inchesToMeters(m_leftEncoder.getDistance()), Units.inchesToMeters(m_rightEncoder.getDistance())));
   }
 }

@@ -4,6 +4,8 @@
 
 package frc.robot;
 
+import com.pathplanner.lib.commands.PathPlannerAuto;
+
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.XboxController;
@@ -54,7 +56,7 @@ public class RobotContainer {
   private void configureButtonBindings() {
     // Default command is arcade drive. This will run unless another command
     // is scheduled over it.
-    m_drivetrain.setDefaultCommand(getArcadeDriveCommand());
+    m_drivetrain.setDefaultCommand(getAutonomousCommand());
 
     // Example of how to use the onboard IO
     Trigger userButton = new Trigger(m_onboardIO::getUserButtonPressed);
@@ -84,7 +86,7 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    return m_chooser.getSelected();
+    return new ArcadeDrive(m_drivetrain, () -> -m_controller.getRawAxis(1), () -> m_controller.getRawAxis(0));
   }
 
   /**
@@ -93,7 +95,6 @@ public class RobotContainer {
    * @return the command to run in teleop
    */
   public Command getArcadeDriveCommand() {
-    return new ArcadeDrive(
-        m_drivetrain, () -> -m_controller.getRawAxis(1), () -> -m_controller.getRawAxis(0));
+    return new PathPlannerAuto("New Auto");
   }
 }
